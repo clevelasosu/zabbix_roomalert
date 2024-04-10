@@ -1,0 +1,777 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    - uuid: 36bff6c29af64692839d077febfc7079
+      name: 'Templates/Network devices'
+  templates:
+    - uuid: ac9eb9e658554e07949482d8b45a38d4
+      template: 'RoomAlert S by HTTP'
+      name: 'RoomAlert S by HTTP'
+      description: |
+        AVTECH RoomAlert template for S-series environment monitors
+        
+        This template was created for Zabbix 6.4
+        
+        Github: https://github.com/clevelasosu/zabbix_roomalert
+        
+        
+        ## Overview
+        
+        To use, create a new host with an interface pointing at the IP or DNS of the Room Alert.
+        
+        It will connect to the {$ROOMALERT_PROTO}://{HOST.CONN}/status.json endpoint and pull the data from there.
+      groups:
+        - name: 'Templates/Network devices'
+      items:
+        - uuid: 0c3416093aa846f684eea527d0b9b801
+          name: 'Firmware Version'
+          type: DEPENDENT
+          key: firmwareVersion
+          delay: '0'
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.general.firmwareVersion
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          master_item:
+            key: raw.json
+          tags:
+            - tag: component
+              value: system
+        - uuid: f560f61a46e64aa9b582702fd231f1a8
+          name: 'Raw Json'
+          type: HTTP_AGENT
+          key: raw.json
+          trends: '0'
+          value_type: TEXT
+          url: '{$ROOMALERT.PROTO}://{HOST.CONN}/status.json'
+          output_format: JSON
+          tags:
+            - tag: component
+              value: raw
+        - uuid: e7d02d3f34794d2dbe78866ba1635603
+          name: 'Serial Number'
+          type: DEPENDENT
+          key: serialNumber
+          delay: '0'
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.general.serialNumber
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          master_item:
+            key: raw.json
+          tags:
+            - tag: component
+              value: system
+      discovery_rules:
+        - uuid: 14242a54c9124760a815d2a01b0c66a3
+          name: 'Analog Sensors Discovery'
+          type: DEPENDENT
+          key: discovery.analogsensors
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: '0'
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 24b4da92396e4acba1520bfdb4ec6c49
+              name: 'Analog Sensor [{#LABEL}] Alarm Enabled'
+              type: DEPENDENT
+              key: 'asensor.alarmenabled[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.analogSensors[?(@.id == "{#ID}")].alarmEnabled'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: analog
+            - uuid: b62193b365fd46fb9b9704f1283dca8a
+              name: 'Analog Sensor [{#LABEL}] Alarm State'
+              type: DEPENDENT
+              key: 'asensor.alarmstate[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.analogSensors[?(@.id == "{#ID}")].alarmState'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: analog
+              trigger_prototypes:
+                - uuid: 721c68d543a64416a1fe5e0f39d96115
+                  expression: 'last(/RoomAlert S by HTTP/asensor.alarmstate[{#ID}])<>0'
+                  name: 'Analog Sensor [{#LABEL}] is in Alarm State'
+                  priority: AVERAGE
+            - uuid: 949599ca1daa4ac8a1e5d7b33a75cbeb
+              name: 'Analog Sensor [{#LABEL}] Label'
+              type: DEPENDENT
+              key: 'asensor.label[{#ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: CHAR
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.analogSensors[?(@.id == "{#ID}")].label'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: analog
+            - uuid: 4e4b92f216254e5f9c4e17ea3915b1de
+              name: 'Analog Sensor [{#LABEL}] Voltage'
+              type: DEPENDENT
+              key: 'asensor.voltage[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.analogSensors[?(@.id == "{#ID}")].voltage'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: analog
+          master_item:
+            key: raw.json
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#LABEL}'
+              path: $.label
+            - lld_macro: '{#TYPE}'
+              path: $.type
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.analogSensors
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+        - uuid: 2bd8b9e16adb47d88621ae2a91c588bc
+          name: 'Digital Sensors Discovery'
+          type: DEPENDENT
+          key: discovery.digitalsensors
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: '0'
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          description: |
+            Discovery digital sensors.  Overrides are used to filter item creationg depending on the type of digital sensor being used.  Currently only supports the "Airflow" and "Temperature and Humidity" sensors.  More can be added later.
+            
+            Types supported:
+            0: indicates no sensor is installed.  Uses the Filters to not do a discovery
+            16: Internal Temperature Only
+            38: Digital Temperature & Humidity and Internal Temperature & Humidity
+            43: Digital Temperature & Air Flow
+          item_prototypes:
+            - uuid: 28a4c0553abe4de1847d5c5ece0a125d
+              name: 'Digital Sensor [{#LABEL}] Air Speed'
+              type: DEPENDENT
+              key: 'dsensor.airspeed[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: m/s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].airSpeed'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: airflow
+                - tag: sensor_type
+                  value: digital
+            - uuid: fad94ecdcd01432f8dce694e9c559923
+              name: 'Digital Sensor [{#LABEL}] Alarm Enabled'
+              type: DEPENDENT
+              key: 'dsensor.alarmenabled[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].alarmEnabled'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: digital
+            - uuid: a55a31086fce4c11ab309403765438af
+              name: 'Digital Sensor [{#LABEL}]  Alarm State'
+              type: DEPENDENT
+              key: 'dsensor.alarmstate[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].alarmState'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: digital
+              trigger_prototypes:
+                - uuid: 0c61935889194c5d89eedc440b89dbcb
+                  expression: 'last(/RoomAlert S by HTTP/dsensor.alarmstate[{#ID}])=1'
+                  name: 'Digital Sensor [{#LABEL}] Alarm Active'
+                  priority: INFO
+            - uuid: f6ec429ce6554619bf650fe36b2092fa
+              name: 'Digital Sensor [{#LABEL}] Dew Point'
+              type: DEPENDENT
+              key: 'dsensor.dewpoint[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].dewPoint'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: humidity
+                - tag: sensor_type
+                  value: digital
+            - uuid: f508817ddcf74afda3e400a150efadaa
+              name: 'Digital Sensor [{#LABEL}] Heat Index'
+              type: DEPENDENT
+              key: 'dsensor.heatindex[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].heatIndex'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: humidity
+                - tag: sensor_type
+                  value: digital
+            - uuid: 9bbca3f4794f414e9615958ce12769c2
+              name: 'Digital Sensor [{#LABEL}] Humidity'
+              type: DEPENDENT
+              key: 'dsensor.humidity[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%RH'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].humidity'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: humidity
+                - tag: sensor_type
+                  value: digital
+            - uuid: 81a2d5e14e294a33972013e4e3abac0e
+              name: 'Digital Sensor [{#LABEL}] Label'
+              type: DEPENDENT
+              key: 'dsensor.label[{#ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: CHAR
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].label'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: digital
+            - uuid: 1740ad110eda4dd4aed72d5110244fac
+              name: 'Digital Sensor [{#LABEL}] Temperature in F'
+              type: DEPENDENT
+              key: 'dsensor.temperaturef[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: F
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].temperature'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return ((value * 9 / 5) + 32)'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: temperature
+                - tag: sensor_type
+                  value: digital
+              trigger_prototypes:
+                - uuid: 942e1b83fc1e4458ac702559764f4b52
+                  expression: 'avg(/RoomAlert S by HTTP/dsensor.temperaturef[{#ID}],5m)>{$ROOMALERT.TEMP.CRIT:"{#LABEL}"}'
+                  name: 'Digital Sensor [{#LABEL}] Temperature Critical (over {$ROOMALERT.TEMP.CRIT} F for 5m)'
+                  priority: HIGH
+                - uuid: 4a54f43e5724411c81ea386fdff4f2b5
+                  expression: 'avg(/RoomAlert S by HTTP/dsensor.temperaturef[{#ID}],5m)>{$ROOMALERT.TEMP.HIGH:"{#LABEL}"}'
+                  name: 'Digital Sensor [{#LABEL}] Temperature High (over {$ROOMALERT.TEMP.HIGH} F for 5m)'
+                  priority: AVERAGE
+            - uuid: 0776a8f290064425af775728e18286bd
+              name: 'Digital Sensor [{#LABEL}] Temperature in C'
+              type: DEPENDENT
+              key: 'dsensor.temperature[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.digitalSensors[?(@.id == "{#ID}")].temperature'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor
+                  value: temperature
+                - tag: sensor_type
+                  value: digital
+          master_item:
+            key: raw.json
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#LABEL}'
+              path: $.label
+            - lld_macro: '{#TYPE}'
+              path: $.type
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.digitalSensors
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+          overrides:
+            - name: 'Not Airflow'
+              step: '1'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: '43'
+                    operator: NOT_MATCHES_REGEX
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Air Speed'
+                  discover: NO_DISCOVER
+            - name: 'Not Humidity'
+              step: '2'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: '38'
+                    operator: NOT_MATCHES_REGEX
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Dew Point'
+                  discover: NO_DISCOVER
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Heat Index'
+                  discover: NO_DISCOVER
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Humidity
+                  discover: NO_DISCOVER
+            - name: Airflow
+              step: '3'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: '43'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Alarm
+                  tags:
+                    - tag: sensor
+                      value: airflow
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Label
+                  tags:
+                    - tag: sensor
+                      value: airflow
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Temperature
+                  tags:
+                    - tag: sensor
+                      value: airflow
+            - name: Humidity
+              step: '4'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: '38'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Alarm
+                  tags:
+                    - tag: sensor
+                      value: humidity
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Label
+                  tags:
+                    - tag: sensor
+                      value: humidity
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Temperature
+                  tags:
+                    - tag: sensor
+                      value: humidity
+        - uuid: 0ce2a1a4261b4f41b6cf19683d203453
+          name: 'Switch Sensors Discovery'
+          type: DEPENDENT
+          key: discovery.digitalswitchsensors
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#ENABLED}'
+                value: 'true'
+                formulaid: A
+          description: 'Switch sensors just have a label, a state (open/true or closed/false) and an alarmState.  The JSON does not tell us which state is ''normal'', so it''s not very useful to collect.  Alarm state relies on having the device setup in the GUI and have a valid alarm profile.'
+          item_prototypes:
+            - uuid: 90e5f52764fc4d55bf25ab3772a887ce
+              name: 'Switch Sensor [{#LABEL}] Alarm State'
+              type: DEPENDENT
+              key: 'ssensor.alarmstate[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.switchSensors[?(@.id == "{#ID}")].alarmState'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: switch
+              trigger_prototypes:
+                - uuid: f8067f145ed24bc898a3dd162d178b1e
+                  expression: 'last(/RoomAlert S by HTTP/ssensor.alarmstate[{#ID}])<>0'
+                  name: 'Switch Sensor [{#LABEL}] is in Alarm State'
+                  priority: HIGH
+            - uuid: 6cff3d7b9a694525a36aa13f9be281e4
+              name: 'Switch Sensor [{#LABEL}] Enabled'
+              type: DEPENDENT
+              key: 'ssensor.enabled[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.switchSensors[?(@.id == "{#ID}")].enabled'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: switch
+            - uuid: fc92058b30324fc9a2a549359a596b25
+              name: 'Switch Sensor [{#LABEL}] Label'
+              type: DEPENDENT
+              key: 'ssensor.label[{#ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: CHAR
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.body.switchSensors[?(@.id == "{#ID}")].label'
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: environment
+                - tag: sensor_type
+                  value: switch
+          master_item:
+            key: raw.json
+          lld_macro_paths:
+            - lld_macro: '{#ENABLED}'
+              path: $.enabled
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#LABEL}'
+              path: $.label
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.switchSensors
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+        - uuid: 1cf7903f81b4495d8b008056136169fb
+          name: 'Power Sensor Discovery'
+          type: DEPENDENT
+          key: discovery.power_sensor
+          delay: '0'
+          description: 'Some models include a battery (32S for instance).  In those cases, the JSON output shows "connected" as true and includes a ''state'' item.  True means external power.  False means battery power.'
+          item_prototypes:
+            - uuid: bb870f4e6b0448e29dae003d46a0f0cf
+              name: 'Power Alarm State'
+              type: DEPENDENT
+              key: 'power[alarmstate{#SINGLETON}]'
+              delay: '0'
+              description: 'alarmState is a boolean.  True indicates the device is running on battery power.  Assuming the alarm is enabled for the power sensor.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.body.powerSensor.alarmState
+                - type: LTRIM
+                  parameters:
+                    - '['
+                - type: RTRIM
+                  parameters:
+                    - ']'
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+              master_item:
+                key: raw.json
+              tags:
+                - tag: category
+                  value: power
+              trigger_prototypes:
+                - uuid: 65b39c7ce2fa4a06957558d74666a249
+                  expression: 'last(/RoomAlert S by HTTP/power[alarmstate{#SINGLETON}])<>0'
+                  name: 'On Battery Power'
+                  priority: HIGH
+                  description: 'On models that have internal batteries, if the powerstate is false, that indicates it is on internal battery power'
+          master_item:
+            key: raw.json
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body.powerSensor
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  return JSON.stringify(JSON.parse(value).connected === true
+                      ? [{'{#SINGLETON}': ''}] : []);
+      tags:
+        - tag: class
+          value: device
+        - tag: target
+          value: roomalert_s
+      macros:
+        - macro: '{$ROOMALERT.PROTO}'
+          value: http
+          description: 'The protocol used to get the JSON (http or https)'
+        - macro: '{$ROOMALERT.TEMP.CRIT}'
+          value: '90'
+          description: 'Temp in F that causes critical trigger'
+        - macro: '{$ROOMALERT.TEMP.HIGH}'
+          value: '80'
+          description: 'Temp in F that causes warning trigger'
+      valuemaps:
+        - uuid: 7b7054b3ef1747b090d87ce17a3c7d62
+          name: 'Internal Power'
+          mappings:
+            - value: '0'
+              newvalue: backupPower
+            - value: '1'
+              newvalue: utilityPower
